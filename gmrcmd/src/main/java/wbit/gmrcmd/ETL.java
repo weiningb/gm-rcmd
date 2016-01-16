@@ -46,7 +46,11 @@ public class ETL
 	
     public static void main(String[] args) throws Exception {
     	Configuration conf = new Configuration();
-
+    	if (args.length != 2) {
+            System.err.println("Usage: ETL <in> <out>");
+            System.exit(2);
+        }
+    	
         Job job = new Job(conf, "ETL");
         job.setJarByClass(ETL.class);
         job.setMapperClass(ETLMapper.class);
