@@ -5,6 +5,7 @@ import com.google.gson.*;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
@@ -19,7 +20,7 @@ import java.util.Map;
 
 public class ETL 
 {
-	public static class ETLMapper extends Mapper<Object, Text, IntWritable, Text> {
+	public static class ETLMapper extends Mapper<Object, Text, LongWritable, IntWritable> {
 		public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
 			try {
 				Gson gson = new Gson();
@@ -27,7 +28,12 @@ public class ETL
 				for (int i = 0; i < tuple.length; i++) {
 					JsonObject obj = gson.fromJson(tuple[i], JsonObject.class);
 					for (Map.Entry<String,JsonElement> entry : obj.entrySet()) {
-						context.write(new IntWritable(entry.getValue().getAsJsonArray().size()), new Text(entry.getKey()));
+						if (!entry.getValue().equals(JsonNull.INSTANCE)) {
+							JsonArray list = entry.getValue().getAsJsonArray();
+							Long userid = Long.parseLong(entry.getKey());
+							for (int j = 0; j < list.size(); i++)
+								context.write(new LongWritable(userid), new IntWritable(list.get(j).getAsJsonObject().get("appid").getAsInt()));
+						}
 					}
 				}
 			} catch (JsonParseException e) {
@@ -36,10 +42,10 @@ public class ETL
 		}
 	}
 	
-	public static class ETLReducer extends Reducer<IntWritable, Text, IntWritable, Text> {
-		public void reduce(IntWritable key, Iterable<Text> value, Context context) throws IOException, InterruptedException {
-			for (Text id : value) {
-				context.write(key, id);
+	public static class ETLReducer extends Reducer<LongWritable, IntWritable, LongWritable, IntWritable> {
+		public void reduce(LongWritable key, Iterable<IntWritable> value, Context context) throws IOException, InterruptedException {
+			for (IntWritable appid : value) {
+				context.write(key, appid);
 			}
 		}
 	}
@@ -55,10 +61,10 @@ public class ETL
         job.setJarByClass(ETL.class);
         job.setMapperClass(ETLMapper.class);
         job.setReducerClass(ETLReducer.class);
-        job.setMapOutputKeyClass(IntWritable.class);
-        job.setMapOutputValueClass(Text.class);
-        job.setOutputKeyClass(IntWritable.class);
-        job.setOutputValueClass(Text.class);
+        job.setMapOutputKeyClass(LongWritable.class);
+        job.setMapOutputValueClass(IntWritable.class);
+        job.setOutputKeyClass(LongWritable.class);
+        job.setOutputValueClass(IntWritable.class);
         job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
 
